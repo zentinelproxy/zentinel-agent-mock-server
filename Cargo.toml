@@ -1,0 +1,68 @@
+[package]
+name = "sentinel-agent-mock-server"
+version = "0.1.0"
+edition = "2021"
+authors = ["Raskell <hello@raskell.io>"]
+description = "Mock server agent for Sentinel proxy - request stubbing, response templates, and failure simulation"
+license = "Apache-2.0"
+repository = "https://github.com/raskell-io/sentinel-agent-mock-server"
+keywords = ["sentinel", "proxy", "agent", "mock", "testing", "stub"]
+categories = ["network-programming", "development-tools::testing"]
+readme = "README.md"
+
+[dependencies]
+# Sentinel SDK
+sentinel-agent-sdk = { git = "https://github.com/raskell-io/sentinel-agent-rust-sdk.git", branch = "main" }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time", "fs"] }
+async-trait = "0.1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+
+# Regex for request matching
+regex = "1"
+
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+# Template engine for dynamic responses
+handlebars = "6"
+
+# Random for latency jitter
+rand = "0.8"
+
+# Base64 encoding for binary responses
+base64 = "0.22"
+
+# Time handling
+chrono = "0.4"
+
+# Glob pattern matching
+globset = "0.4"
+
+# JSON path for body matching
+jsonpath-rust = "0.7"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3"
+
+[[bin]]
+name = "sentinel-agent-mock-server"
+path = "src/main.rs"
+
+[lib]
+name = "sentinel_agent_mock_server"
+path = "src/lib.rs"

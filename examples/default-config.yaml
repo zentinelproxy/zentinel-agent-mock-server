@@ -1,0 +1,218 @@
+# Sentinel Mock Server Agent - Example Configuration
+#
+# This file demonstrates all available options.
+
+stubs:
+  # Simple static response
+  - id: hello-world
+    name: "Hello World Endpoint"
+    request:
+      method: [GET]
+      path:
+        type: exact
+        value: /hello
+    response:
+      status: 200
+      headers:
+        X-Custom-Header: "custom-value"
+      body:
+        type: json
+        content:
+          message: "Hello, World!"
+
+  # Path with parameters and template response
+  - id: user-by-id
+    request:
+      method: [GET]
+      path:
+        type: template
+        template: /users/{id}
+    response:
+      status: 200
+      template: true
+      body:
+        type: json
+        content:
+          id: "{{path.id}}"
+          name: "User {{path.id}}"
+          created_at: "{{now}}"
+
+  # Regex path matching
+  - id: api-v1-endpoints
+    request:
+      path:
+        type: regex
+        pattern: "^/api/v1/.*"
+    response:
+      status: 200
+      body:
+        type: json
+        content:
+          version: "1.0"
+          deprecated: true
+
+  # Query parameter matching
+  - id: search-endpoint
+    request:
+      method: [GET]
+      path:
+        type: exact
+        value: /search
+      query:
+        q:
+          type: present
+        limit:
+          type: regex
+          pattern: "^\\d+$"
+    response:
+      status: 200
+      template: true
+      body:
+        type: json
+        content:
+          query: "{{query.q}}"
+          limit: "{{default query.limit \"10\"}}"
+          results: []
+
+  # Header matching
+  - id: authenticated-endpoint
+    request:
+      path:
+        type: prefix
+        value: /api/protected
+      headers:
+        authorization:
+          type: present
+    response:
+      status: 200
+      body:
+        type: json
+        content:
+          authenticated: true
+
+  # Body matching with JSON path
+  - id: create-user
+    request:
+      method: [POST]
+      path:
+        type: exact
+        value: /users
+      body:
+        type: json_path
+        expressions:
+          $.email: null  # Just check email exists
+    response:
+      status: 201
+      template: true
+      body:
+        type: json
+        content:
+          id: "{{uuid}}"
+          email: "{{json.email}}"
+          created: true
+
+  # Simulated delay
+  - id: slow-endpoint
+    request:
+      path:
+        type: exact
+        value: /slow
+    response:
+      status: 200
+      body:
+        type: text
+        content: "This was slow"
+    delay:
+      fixed_ms: 2000
+
+  # Random delay range
+  - id: variable-latency
+    request:
+      path:
+        type: exact
+        value: /variable
+    response:
+      status: 200
+    delay:
+      min_ms: 100
+      max_ms: 500
+
+  # Error injection
+  - id: error-endpoint
+    request:
+      path:
+        type: exact
+        value: /error
+    response:
+      status: 200
+    fault:
+      type: error
+      status: 500
+      message: "Internal Server Error (simulated)"
+
+  # Timeout simulation
+  - id: timeout-endpoint
+    request:
+      path:
+        type: exact
+        value: /timeout
+    response:
+      status: 200
+    fault:
+      type: timeout
+      duration_ms: 30000
+
+  # Limited matches
+  - id: one-time-endpoint
+    request:
+      path:
+        type: exact
+        value: /once
+    response:
+      status: 200
+      body:
+        type: text
+        content: "This only works once"
+    max_matches: 1
+
+  # Priority-based matching
+  - id: specific-user
+    priority: 10
+    request:
+      method: [GET]
+      path:
+        type: exact
+        value: /users/admin
+    response:
+      status: 200
+      body:
+        type: json
+        content:
+          id: "admin"
+          role: "administrator"
+
+# Global settings
+settings:
+  # Log matched requests
+  log_matches: true
+
+  # Log unmatched requests
+  log_unmatched: true
+
+  # Pass unmatched requests to upstream (false = return 404)
+  passthrough_unmatched: false
+
+  # Default content type for responses
+  default_content_type: "application/json"
+
+  # Case-insensitive header matching
+  case_insensitive_headers: true
+
+# Default response for unmatched requests (optional)
+default_response:
+  status: 404
+  body:
+    type: json
+    content:
+      error: "not_found"
+      message: "No matching stub found"
