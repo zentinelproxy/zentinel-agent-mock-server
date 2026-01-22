@@ -5,9 +5,11 @@ use crate::matcher::Matcher;
 use crate::template::TemplateEngine;
 use async_trait::async_trait;
 use sentinel_agent_sdk::prelude::*;
-use sentinel_agent_sdk::v2::prelude::*;
-use sentinel_agent_sdk::v2::{DrainReason, MetricsReport, ShutdownReason};
-use sentinel_agent_protocol::v2::{CounterMetric, GaugeMetric};
+use sentinel_agent_protocol::v2::{
+    AgentCapabilities, AgentFeatures, AgentHandlerV2, CounterMetric, DrainReason,
+    GaugeMetric, HealthStatus, MetricsReport, ShutdownReason,
+};
+use sentinel_agent_protocol::{AgentResponse, EventType, RequestHeadersEvent, ResponseHeadersEvent};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicBool, Ordering};
 use std::sync::Arc;
@@ -512,15 +514,19 @@ impl Agent for MockServerAgent {
 }
 
 /// v2 Protocol implementation for MockServerAgent.
-impl AgentV2 for MockServerAgent {
+#[async_trait]
+impl AgentHandlerV2 for MockServerAgent {
     fn capabilities(&self) -> AgentCapabilities {
         AgentCapabilities::new("mock-server", "Mock Server Agent", env!("CARGO_PKG_VERSION"))
-            .with_config_push(true)
-            .with_health_reporting(true)
-            .with_metrics_export(true)
-            .with_concurrent_requests(100)
-            .with_cancellation(true)
-            .with_max_processing_time_ms(5000)
+            .with_event(EventType::RequestHeaders)
+            .with_features(AgentFeatures {
+                config_push: true,
+                health_reporting: true,
+                metrics_export: true,
+                concurrent_requests: 100,
+                cancellation: true,
+                max_processing_time_ms: 5000,
+            })
     }
 
     fn health_status(&self) -> HealthStatus {
@@ -574,7 +580,7 @@ impl AgentV2 for MockServerAgent {
         Some(report)
     }
 
-    fn on_shutdown(&self, reason: ShutdownReason, grace_period_ms: u64) {
+    async fn on_shutdown(&self, reason: ShutdownReason, grace_period_ms: u64) {
         info!(
             reason = ?reason,
             grace_period_ms = grace_period_ms,
@@ -584,7 +590,7 @@ impl AgentV2 for MockServerAgent {
         self.draining.store(true, Ordering::SeqCst);
     }
 
-    fn on_drain(&self, duration_ms: u64, reason: DrainReason) {
+    async fn on_drain(&self, duration_ms: u64, reason: DrainReason) {
         warn!(
             reason = ?reason,
             duration_ms = duration_ms,
@@ -780,13 +786,13 @@ settings:
         assert_eq!(health.agent_id, "mock-server");
     }
 
-    #[test]
-    fn test_v2_health_status_draining() {
+    #[tokio::test]
+    async fn test_v2_health_status_draining() {
         let config = test_config();
         let agent = MockServerAgent::new(config);
 
         // Trigger drain
-        agent.on_drain(5000, DrainReason::Maintenance);
+        agent.on_drain(5000, DrainReason::Maintenance).await;
 
         // Should be degraded now
         let health = agent.health_status();
@@ -807,14 +813,14 @@ settings:
         assert!(!report.gauges.is_empty());
     }
 
-    #[test]
-    fn test_draining_flag() {
+    #[tokio::test]
+    async fn test_draining_flag() {
         let config = test_config();
         let agent = MockServerAgent::new(config);
 
         assert!(!agent.is_draining());
 
-        agent.on_shutdown(ShutdownReason::Graceful, 30000);
+        agent.on_shutdown(ShutdownReason::Graceful, 30000).await;
 
         assert!(agent.is_draining());
     }
