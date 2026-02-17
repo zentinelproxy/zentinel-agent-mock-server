@@ -1,6 +1,6 @@
-//! Sentinel Mock Server Agent
+//! Zentinel Mock Server Agent
 //!
-//! A mock server agent for Sentinel that intercepts requests and returns
+//! A mock server agent for Zentinel that intercepts requests and returns
 //! configurable stub responses. Perfect for testing, development, and demos.
 //!
 //! # Features

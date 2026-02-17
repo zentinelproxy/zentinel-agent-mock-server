@@ -1,9 +1,9 @@
-//! Sentinel Mock Server Agent - CLI Entry Point
+//! Zentinel Mock Server Agent - CLI Entry Point
 
 use anyhow::Result;
 use clap::Parser;
-use sentinel_agent_mock_server::{MockServerAgent, MockServerConfig};
-use sentinel_agent_sdk::v2::{AgentRunnerV2, TransportConfig};
+use zentinel_agent_mock_server::{MockServerAgent, MockServerConfig};
+use zentinel_agent_sdk::v2::{AgentRunnerV2, TransportConfig};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use tracing::{info, Level};
@@ -11,8 +11,8 @@ use tracing_subscriber::FmtSubscriber;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "sentinel-agent-mock-server",
-    about = "Mock server agent for Sentinel proxy - request stubbing and response simulation",
+    name = "zentinel-agent-mock-server",
+    about = "Mock server agent for Zentinel proxy - request stubbing and response simulation",
     version
 )]
 struct Args {
@@ -21,7 +21,7 @@ struct Args {
     config: PathBuf,
 
     /// Unix socket path for agent communication
-    #[arg(short, long, default_value = "/tmp/sentinel-mock-server.sock")]
+    #[arg(short, long, default_value = "/tmp/zentinel-mock-server.sock")]
     socket: PathBuf,
 
     /// gRPC server address (e.g., "0.0.0.0:50051")

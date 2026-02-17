@@ -4,12 +4,12 @@ use crate::config::{FaultConfig, MockServerConfig, ResponseBody, StubDefinition}
 use crate::matcher::Matcher;
 use crate::template::TemplateEngine;
 use async_trait::async_trait;
-use sentinel_agent_sdk::prelude::*;
-use sentinel_agent_protocol::v2::{
+use zentinel_agent_sdk::prelude::*;
+use zentinel_agent_protocol::v2::{
     AgentCapabilities, AgentFeatures, AgentHandlerV2, CounterMetric, DrainReason,
     GaugeMetric, HealthStatus, MetricsReport, ShutdownReason,
 };
-use sentinel_agent_protocol::{AgentResponse, EventType, RequestHeadersEvent, ResponseHeadersEvent};
+use zentinel_agent_protocol::{AgentResponse, EventType, RequestHeadersEvent, ResponseHeadersEvent};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicBool, Ordering};
 use std::sync::Arc;

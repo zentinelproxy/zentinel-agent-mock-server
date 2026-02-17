@@ -1,6 +1,6 @@
-# Sentinel Mock Server Agent
+# Zentinel Mock Server Agent
 
-A mock server agent for [Sentinel](https://sentinel.raskell.io) that intercepts requests and returns configurable stub responses. Perfect for testing, development, and API demos.
+A mock server agent for [Zentinel](https://zentinelproxy.io) that intercepts requests and returns configurable stub responses. Perfect for testing, development, and API demos.
 
 ## Features
 
@@ -17,14 +17,14 @@ A mock server agent for [Sentinel](https://sentinel.raskell.io) that intercepts 
 ### Using Cargo
 
 ```bash
-cargo install sentinel-agent-mock-server
+cargo install zentinel-agent-mock-server
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/raskell-io/sentinel-agent-mock-server
-cd sentinel-agent-mock-server
+git clone https://github.com/zentinelproxy/zentinel-agent-mock-server
+cd zentinel-agent-mock-server
 cargo build --release
 ```
 
@@ -48,18 +48,18 @@ stubs:
           message: "Hello, World!"
 ```
 
-2. Add to your Sentinel configuration:
+2. Add to your Zentinel configuration:
 
 ```kdl
 agents {
-    mock-server socket="/tmp/sentinel-mock-server.sock"
+    mock-server socket="/tmp/zentinel-mock-server.sock"
 }
 ```
 
 3. Start the agent:
 
 ```bash
-sentinel-agent-mock-server -c mock-server.yaml
+zentinel-agent-mock-server -c mock-server.yaml
 ```
 
 ## Configuration
@@ -296,11 +296,11 @@ default_response:
 ## CLI Options
 
 ```
-sentinel-agent-mock-server [OPTIONS]
+zentinel-agent-mock-server [OPTIONS]
 
 Options:
   -c, --config <PATH>        Configuration file [default: mock-server.yaml]
-  -s, --socket <PATH>        Unix socket path [default: /tmp/sentinel-mock-server.sock]
+  -s, --socket <PATH>        Unix socket path [default: /tmp/zentinel-mock-server.sock]
   -L, --log-level <LEVEL>    Log level [default: info]
       --print-config         Print example configuration
       --validate             Validate configuration and exit
