@@ -62,7 +62,7 @@ tokio-test = "0.4"
 tempfile = "3"
 
 [[bin]]
-name = "zentinel-agent-mock-server"
+name = "zentinel-mock-server-agent"
 path = "src/main.rs"
 
 [lib]

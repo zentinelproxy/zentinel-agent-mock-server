@@ -59,7 +59,7 @@ agents {
 3. Start the agent:
 
 ```bash
-zentinel-agent-mock-server -c mock-server.yaml
+zentinel-mock-server-agent -c mock-server.yaml
 ```
 
 ## Configuration
@@ -296,7 +296,7 @@ default_response:
 ## CLI Options
 
 ```
-zentinel-agent-mock-server [OPTIONS]
+zentinel-mock-server-agent [OPTIONS]
 
 Options:
   -c, --config <PATH>        Configuration file [default: mock-server.yaml]

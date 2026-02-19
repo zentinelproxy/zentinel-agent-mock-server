@@ -10,7 +10,7 @@
 ################################################################################
 FROM gcr.io/distroless/cc-debian12:nonroot AS prebuilt
 
-COPY zentinel-agent-mock-server /zentinel-agent-mock-server
+COPY zentinel-mock-server-agent /zentinel-mock-server-agent
 
 LABEL org.opencontainers.image.title="Zentinel Mock Server Agent" \
       org.opencontainers.image.description="Zentinel Mock Server Agent for Zentinel reverse proxy" \
@@ -22,4 +22,4 @@ ENV RUST_LOG=info,zentinel_agent_mock_server=debug \
 
 USER nonroot:nonroot
 
-ENTRYPOINT ["/zentinel-agent-mock-server"]
+ENTRYPOINT ["/zentinel-mock-server-agent"]
