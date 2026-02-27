@@ -23,7 +23,6 @@ pub struct MockServerConfig {
     pub default_response: Option<ResponseDefinition>,
 }
 
-
 impl MockServerConfig {
     /// Load configuration from a YAML file.
     pub fn from_file(path: &Path) -> anyhow::Result<Self> {
@@ -36,7 +35,8 @@ impl MockServerConfig {
     /// Validate the configuration.
     pub fn validate(&self) -> anyhow::Result<()> {
         for (i, stub) in self.stubs.iter().enumerate() {
-            stub.validate().map_err(|e| anyhow::anyhow!("Stub {}: {}", i, e))?;
+            stub.validate()
+                .map_err(|e| anyhow::anyhow!("Stub {}: {}", i, e))?;
         }
         Ok(())
     }
@@ -155,8 +155,7 @@ impl PathMatcher {
                 regex::Regex::new(pattern).map_err(|e| anyhow::anyhow!("Invalid regex: {}", e))?;
             }
             PathMatcher::Glob { pattern } => {
-                globset::Glob::new(pattern)
-                    .map_err(|e| anyhow::anyhow!("Invalid glob: {}", e))?;
+                globset::Glob::new(pattern).map_err(|e| anyhow::anyhow!("Invalid glob: {}", e))?;
             }
             _ => {}
         }
@@ -269,18 +268,15 @@ impl ResponseBody {
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         match self {
             ResponseBody::Text { content } => Ok(content.as_bytes().to_vec()),
-            ResponseBody::Json { content } => {
-                Ok(serde_json::to_string(content)?.into_bytes())
-            }
+            ResponseBody::Json { content } => Ok(serde_json::to_string(content)?.into_bytes()),
             ResponseBody::Base64 { content } => {
                 use base64::Engine;
                 base64::engine::general_purpose::STANDARD
                     .decode(content)
                     .map_err(|e| anyhow::anyhow!("Invalid base64: {}", e))
             }
-            ResponseBody::File { path } => {
-                std::fs::read(path).map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", path, e))
-            }
+            ResponseBody::File { path } => std::fs::read(path)
+                .map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", path, e)),
         }
     }
 
@@ -403,7 +399,6 @@ impl Default for GlobalSettings {
 fn default_content_type() -> String {
     "application/json".to_string()
 }
-
 
 #[cfg(test)]
 mod tests {

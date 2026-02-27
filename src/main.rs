@@ -2,12 +2,12 @@
 
 use anyhow::Result;
 use clap::Parser;
-use zentinel_agent_mock_server::{MockServerAgent, MockServerConfig};
-use zentinel_agent_sdk::v2::{AgentRunnerV2, TransportConfig};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
+use zentinel_agent_mock_server::{MockServerAgent, MockServerConfig};
+use zentinel_agent_sdk::v2::{AgentRunnerV2, TransportConfig};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -73,7 +73,10 @@ async fn main() -> Result<()> {
     // Validate and exit if requested
     if args.validate {
         config.validate()?;
-        println!("Configuration is valid ({} stubs defined)", config.stubs.len());
+        println!(
+            "Configuration is valid ({} stubs defined)",
+            config.stubs.len()
+        );
         return Ok(());
     }
 
@@ -105,7 +108,10 @@ async fn main() -> Result<()> {
     runner = match transport {
         TransportConfig::Grpc { address } => runner.with_grpc(address),
         TransportConfig::Uds { path } => runner.with_uds(path),
-        TransportConfig::Both { grpc_address, uds_path } => runner.with_both(grpc_address, uds_path),
+        TransportConfig::Both {
+            grpc_address,
+            uds_path,
+        } => runner.with_both(grpc_address, uds_path),
     };
 
     runner.run().await?;

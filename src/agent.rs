@@ -4,17 +4,17 @@ use crate::config::{FaultConfig, MockServerConfig, ResponseBody, StubDefinition}
 use crate::matcher::Matcher;
 use crate::template::TemplateEngine;
 use async_trait::async_trait;
-use zentinel_agent_sdk::prelude::*;
-use zentinel_agent_protocol::v2::{
-    AgentCapabilities, AgentFeatures, AgentHandlerV2, CounterMetric, DrainReason,
-    GaugeMetric, HealthStatus, MetricsReport, ShutdownReason,
-};
-use zentinel_agent_protocol::{AgentResponse, EventType, RequestHeadersEvent, ResponseHeadersEvent};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+use zentinel_agent_protocol::v2::{
+    AgentCapabilities, AgentFeatures, AgentHandlerV2, CounterMetric, DrainReason, GaugeMetric,
+    HealthStatus, MetricsReport, ShutdownReason,
+};
+use zentinel_agent_protocol::EventType;
+use zentinel_agent_sdk::prelude::*;
 
 /// Mock Server Agent
 ///
@@ -208,18 +208,16 @@ impl MockServerAgent {
         body: Option<&[u8]>,
     ) -> Option<Vec<u8>> {
         match body_def {
-            ResponseBody::Text { content } => {
-                self.template_engine
-                    .render(content, match_ctx, method, path, headers, body)
-                    .ok()
-                    .map(|s| s.into_bytes())
-            }
-            ResponseBody::Json { content } => {
-                self.template_engine
-                    .render_json(content, match_ctx, method, path, headers, body)
-                    .ok()
-                    .and_then(|v| serde_json::to_vec(&v).ok())
-            }
+            ResponseBody::Text { content } => self
+                .template_engine
+                .render(content, match_ctx, method, path, headers, body)
+                .ok()
+                .map(|s| s.into_bytes()),
+            ResponseBody::Json { content } => self
+                .template_engine
+                .render_json(content, match_ctx, method, path, headers, body)
+                .ok()
+                .and_then(|v| serde_json::to_vec(&v).ok()),
             _ => body_def.to_bytes().ok(),
         }
     }
@@ -257,14 +255,12 @@ impl MockServerAgent {
                     .with_metadata("fault_type", serde_json::json!("timeout"))
             }
 
-            FaultConfig::Empty => {
-                Decision::block(200)
-                    .with_body("")
-                    .with_tag("mocked")
-                    .with_tag("fault_injected")
-                    .with_metadata("stub_id", serde_json::json!(stub.id))
-                    .with_metadata("fault_type", serde_json::json!("empty"))
-            }
+            FaultConfig::Empty => Decision::block(200)
+                .with_body("")
+                .with_tag("mocked")
+                .with_tag("fault_injected")
+                .with_metadata("stub_id", serde_json::json!(stub.id))
+                .with_metadata("fault_type", serde_json::json!("empty")),
 
             FaultConfig::Corrupt { probability } => {
                 use rand::Rng;
@@ -311,10 +307,7 @@ impl MockServerAgent {
     async fn build_normal_response(&self, stub: &StubDefinition) -> Decision {
         let response = &stub.response;
 
-        let body_content = response
-            .body
-            .as_ref()
-            .and_then(|b| b.to_bytes().ok());
+        let body_content = response.body.as_ref().and_then(|b| b.to_bytes().ok());
 
         let content_type = response
             .headers
@@ -350,10 +343,7 @@ impl MockServerAgent {
     /// Build a default response for unmatched requests.
     fn build_default_response(&self) -> Decision {
         if let Some(default) = &self.config.default_response {
-            let body_content = default
-                .body
-                .as_ref()
-                .and_then(|b| b.to_bytes().ok());
+            let body_content = default.body.as_ref().and_then(|b| b.to_bytes().ok());
 
             let content_type = default
                 .headers
@@ -394,7 +384,9 @@ fn generate_garbage() -> String {
     use rand::Rng;
     let mut rng = rand::thread_rng();
     let len = rng.gen_range(50..200);
-    (0..len).map(|_| rng.gen_range(0x20..0x7e) as u8 as char).collect()
+    (0..len)
+        .map(|_| rng.gen_range(0x20..0x7e) as u8 as char)
+        .collect()
 }
 
 // The agent needs to be Send + Sync for the SDK
@@ -466,15 +458,8 @@ impl Agent for MockServerAgent {
                 }
 
                 // Build and return response
-                self.build_response(
-                    result.stub,
-                    &result.context,
-                    method,
-                    path,
-                    &headers,
-                    body,
-                )
-                .await
+                self.build_response(result.stub, &result.context, method, path, &headers, body)
+                    .await
             }
             None => {
                 self.requests_unmatched.fetch_add(1, Ordering::Relaxed);
@@ -517,29 +502,29 @@ impl Agent for MockServerAgent {
 #[async_trait]
 impl AgentHandlerV2 for MockServerAgent {
     fn capabilities(&self) -> AgentCapabilities {
-        AgentCapabilities::new("mock-server", "Mock Server Agent", env!("CARGO_PKG_VERSION"))
-            .with_event(EventType::RequestHeaders)
-            .with_features(AgentFeatures {
-                streaming_body: false,
-                websocket: false,
-                guardrails: false,
-                config_push: true,
-                health_reporting: true,
-                metrics_export: true,
-                concurrent_requests: 100,
-                cancellation: true,
-                flow_control: false,
-            })
+        AgentCapabilities::new(
+            "mock-server",
+            "Mock Server Agent",
+            env!("CARGO_PKG_VERSION"),
+        )
+        .with_event(EventType::RequestHeaders)
+        .with_features(AgentFeatures {
+            streaming_body: false,
+            websocket: false,
+            guardrails: false,
+            config_push: true,
+            health_reporting: true,
+            metrics_export: true,
+            concurrent_requests: 100,
+            cancellation: true,
+            flow_control: false,
+        })
     }
 
     fn health_status(&self) -> HealthStatus {
         // Report healthy unless we're draining
         if self.is_draining() {
-            HealthStatus::degraded(
-                "mock-server",
-                vec!["stubbing".to_string()],
-                1.0,
-            )
+            HealthStatus::degraded("mock-server", vec!["stubbing".to_string()], 1.0)
         } else {
             HealthStatus::healthy("mock-server")
         }
@@ -686,14 +671,10 @@ settings:
 
         // Create a mock request (we'll test the matcher directly)
         let headers = HashMap::new();
-        let match_result = agent.matcher.find_match(
-            &agent.config.stubs,
-            "GET",
-            "/hello",
-            None,
-            &headers,
-            None,
-        );
+        let match_result =
+            agent
+                .matcher
+                .find_match(&agent.config.stubs, "GET", "/hello", None, &headers, None);
 
         assert!(match_result.is_some());
         assert_eq!(match_result.unwrap().stub.id, "hello");
@@ -717,7 +698,10 @@ settings:
         assert!(match_result.is_some());
         let result = match_result.unwrap();
         assert_eq!(result.stub.id, "user-by-id");
-        assert_eq!(result.context.path_params.get("id"), Some(&"123".to_string()));
+        assert_eq!(
+            result.context.path_params.get("id"),
+            Some(&"123".to_string())
+        );
     }
 
     #[tokio::test]

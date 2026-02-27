@@ -99,9 +99,11 @@ impl PathTemplate {
                 }
                 TemplateSegment::Param(name) => {
                     // Find the next literal or end of string
-                    let end_pos = if let Some(next_segment) = self.segments.iter().find(|s| {
-                        matches!(s, TemplateSegment::Literal(_))
-                    }) {
+                    let end_pos = if let Some(next_segment) = self
+                        .segments
+                        .iter()
+                        .find(|s| matches!(s, TemplateSegment::Literal(_)))
+                    {
                         if let TemplateSegment::Literal(next_lit) = next_segment {
                             remaining.find(next_lit.as_str()).unwrap_or(remaining.len())
                         } else {
@@ -209,7 +211,11 @@ impl Matcher {
         // Check method
         if !matcher.method.is_empty() {
             let method_upper = method.to_uppercase();
-            if !matcher.method.iter().any(|m| m.to_uppercase() == method_upper) {
+            if !matcher
+                .method
+                .iter()
+                .any(|m| m.to_uppercase() == method_upper)
+            {
                 return None;
             }
         }
@@ -262,13 +268,17 @@ impl Matcher {
                 if let Some(captures) = regex.captures(path) {
                     for (i, cap) in captures.iter().enumerate().skip(1) {
                         if let Some(m) = cap {
-                            context.captures.insert(format!("{}", i), m.as_str().to_string());
+                            context
+                                .captures
+                                .insert(format!("{}", i), m.as_str().to_string());
                         }
                     }
                     // Also add named captures
                     for name in regex.capture_names().flatten() {
                         if let Some(m) = captures.name(name) {
-                            context.captures.insert(name.to_string(), m.as_str().to_string());
+                            context
+                                .captures
+                                .insert(name.to_string(), m.as_str().to_string());
                         }
                     }
                     true
@@ -363,11 +373,9 @@ impl Matcher {
             BodyMatcher::Contains { value } => {
                 body_str.map(|bs| bs.contains(value)).unwrap_or(false)
             }
-            BodyMatcher::Json => {
-                body_str
-                    .map(|bs| serde_json::from_str::<serde_json::Value>(bs).is_ok())
-                    .unwrap_or(false)
-            }
+            BodyMatcher::Json => body_str
+                .map(|bs| serde_json::from_str::<serde_json::Value>(bs).is_ok())
+                .unwrap_or(false),
             BodyMatcher::Empty => body.map(|b| b.is_empty()).unwrap_or(true),
         }
     }
@@ -413,10 +421,7 @@ fn parse_query_string(query: &str) -> HashMap<String, String> {
             continue;
         }
         if let Some((key, value)) = part.split_once('=') {
-            params.insert(
-                urlencoding_decode(key),
-                urlencoding_decode(value),
-            );
+            params.insert(urlencoding_decode(key), urlencoding_decode(value));
         } else {
             params.insert(urlencoding_decode(part), String::new());
         }
@@ -511,7 +516,8 @@ mod tests {
         let result = matcher.find_match(&stubs, "GET", "/api/users", None, &HashMap::new(), None);
         assert!(result.is_some());
 
-        let result = matcher.find_match(&stubs, "GET", "/api/posts/123", None, &HashMap::new(), None);
+        let result =
+            matcher.find_match(&stubs, "GET", "/api/posts/123", None, &HashMap::new(), None);
         assert!(result.is_some());
 
         let result = matcher.find_match(&stubs, "GET", "/other", None, &HashMap::new(), None);
@@ -553,7 +559,8 @@ mod tests {
         let result = matcher.find_match(&stubs, "GET", "/api/users", None, &HashMap::new(), None);
         assert!(result.is_some());
 
-        let result = matcher.find_match(&stubs, "DELETE", "/api/users", None, &HashMap::new(), None);
+        let result =
+            matcher.find_match(&stubs, "DELETE", "/api/users", None, &HashMap::new(), None);
         assert!(result.is_none());
     }
 
@@ -604,10 +611,9 @@ mod tests {
                 value: "/api/users".to_string(),
             },
         );
-        stub.request.headers.insert(
-            "authorization".to_string(),
-            HeaderMatcher::Present,
-        );
+        stub.request
+            .headers
+            .insert("authorization".to_string(), HeaderMatcher::Present);
 
         let stubs = vec![stub];
         let matcher = Matcher::new(&stubs);
@@ -662,11 +668,25 @@ mod tests {
         let matcher = Matcher::new(&stubs);
 
         let body = br#"{"name": "John"}"#;
-        let result = matcher.find_match(&stubs, "POST", "/api/users", None, &HashMap::new(), Some(body));
+        let result = matcher.find_match(
+            &stubs,
+            "POST",
+            "/api/users",
+            None,
+            &HashMap::new(),
+            Some(body),
+        );
         assert!(result.is_some());
 
         let body = b"not json";
-        let result = matcher.find_match(&stubs, "POST", "/api/users", None, &HashMap::new(), Some(body));
+        let result = matcher.find_match(
+            &stubs,
+            "POST",
+            "/api/users",
+            None,
+            &HashMap::new(),
+            Some(body),
+        );
         assert!(result.is_none());
     }
 

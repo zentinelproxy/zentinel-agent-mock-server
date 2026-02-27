@@ -65,10 +65,10 @@ impl TemplateEngine {
         headers: &HashMap<String, String>,
         body: Option<&[u8]>,
     ) -> Result<String, handlebars::RenderError> {
-        let body_str = body.and_then(|b| std::str::from_utf8(b).ok()).map(String::from);
-        let json_body = body_str
-            .as_ref()
-            .and_then(|s| serde_json::from_str(s).ok());
+        let body_str = body
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .map(String::from);
+        let json_body = body_str.as_ref().and_then(|s| serde_json::from_str(s).ok());
 
         let ctx = TemplateContext {
             path: match_ctx.path_params.clone(),
@@ -94,10 +94,10 @@ impl TemplateEngine {
         headers: &HashMap<String, String>,
         body: Option<&[u8]>,
     ) -> Result<serde_json::Value, handlebars::RenderError> {
-        let body_str = body.and_then(|b| std::str::from_utf8(b).ok()).map(String::from);
-        let json_body = body_str
-            .as_ref()
-            .and_then(|s| serde_json::from_str(s).ok());
+        let body_str = body
+            .and_then(|b| std::str::from_utf8(b).ok())
+            .map(String::from);
+        let json_body = body_str.as_ref().and_then(|s| serde_json::from_str(s).ok());
 
         let ctx = TemplateContext {
             path: match_ctx.path_params.clone(),
@@ -129,10 +129,8 @@ impl TemplateEngine {
                 }
             }
             serde_json::Value::Array(arr) => {
-                let rendered: Result<Vec<_>, _> = arr
-                    .iter()
-                    .map(|v| self.render_json_value(v, ctx))
-                    .collect();
+                let rendered: Result<Vec<_>, _> =
+                    arr.iter().map(|v| self.render_json_value(v, ctx)).collect();
                 Ok(serde_json::Value::Array(rendered?))
             }
             serde_json::Value::Object(obj) => {
@@ -221,14 +219,8 @@ fn random_helper(
 ) -> handlebars::HelperResult {
     use rand::Rng;
 
-    let min = h
-        .param(0)
-        .and_then(|v| v.value().as_i64())
-        .unwrap_or(0);
-    let max = h
-        .param(1)
-        .and_then(|v| v.value().as_i64())
-        .unwrap_or(100);
+    let min = h.param(0).and_then(|v| v.value().as_i64()).unwrap_or(0);
+    let max = h.param(1).and_then(|v| v.value().as_i64()).unwrap_or(100);
 
     let mut rng = rand::thread_rng();
     let value = rng.gen_range(min..=max);
@@ -300,7 +292,14 @@ mod tests {
         ctx.path_params.insert("id".to_string(), "123".to_string());
 
         let result = engine
-            .render("User ID: {{path.id}}", &ctx, "GET", "/users/123", &HashMap::new(), None)
+            .render(
+                "User ID: {{path.id}}",
+                &ctx,
+                "GET",
+                "/users/123",
+                &HashMap::new(),
+                None,
+            )
             .unwrap();
 
         assert_eq!(result, "User ID: 123");
@@ -313,7 +312,14 @@ mod tests {
         ctx.query_params.insert("page".to_string(), "1".to_string());
 
         let result = engine
-            .render("Page: {{query.page}}", &ctx, "GET", "/list", &HashMap::new(), None)
+            .render(
+                "Page: {{query.page}}",
+                &ctx,
+                "GET",
+                "/list",
+                &HashMap::new(),
+                None,
+            )
             .unwrap();
 
         assert_eq!(result, "Page: 1");
@@ -399,7 +405,8 @@ mod tests {
     fn test_upper_lower_helpers() {
         let engine = TemplateEngine::new();
         let mut ctx = MatchContext::default();
-        ctx.path_params.insert("name".to_string(), "John".to_string());
+        ctx.path_params
+            .insert("name".to_string(), "John".to_string());
 
         let result = engine
             .render(
