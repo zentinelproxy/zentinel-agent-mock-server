@@ -1,42 +1,127 @@
-# Zentinel Mock Server Agent
+<p align="center">
+  <a href="https://zentinelproxy.io">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/zentinelproxy/design/main/marks/lockup/zentinel-lockup-dark.svg">
+      <img alt="Zentinel" src="https://raw.githubusercontent.com/zentinelproxy/design/main/marks/lockup/zentinel-lockup-light.svg" height="52">
+    </picture>
+  </a>
+</p>
 
-A mock server agent for [Zentinel](https://zentinelproxy.io) that intercepts requests and returns configurable stub responses. Perfect for testing, development, and API demos.
+<h3 align="center">Mock server agent</h3>
 
-## Features
+<p align="center">Answers matching requests with stub responses from a YAML file, at the request-headers phase, for development, tests and demos.</p>
 
-- **Request Matching**: Match by path (exact, prefix, regex, glob, template), method, headers, query params, body
-- **Static Responses**: Return fixed responses for matched requests
-- **Dynamic Templates**: Use Handlebars templates for dynamic responses
-- **Latency Simulation**: Add fixed or random delays
-- **Failure Injection**: Simulate errors, timeouts, empty responses, corruption
-- **Match Limits**: Limit how many times a stub can be matched
-- **Priority Matching**: Control which stub matches when multiple could match
+<p align="center">
+  <a href="https://github.com/zentinelproxy/zentinel-agent-mock-server/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/zentinelproxy/zentinel-agent-mock-server/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Agent protocol: v2" src="https://img.shields.io/badge/agent%20protocol-v2-f68d31?style=flat&labelColor=1f161e">
+</p>
 
-## Installation
+<p align="center">
+  <a href="https://registry.zentinelproxy.io/mock-server/">Registry</a> &middot;
+  <a href="https://docs.zentinelproxy.io">Docs</a> &middot;
+  <a href="https://github.com/zentinelproxy">All repositories</a>
+</p>
 
-### Using Bundle (Recommended)
+The agent matches each request against a list of stubs (method, path, query
+parameters, headers) and, on a match, returns the stub's status, headers and
+body to the client instead of forwarding the request. Responses can be static,
+rendered from Handlebars templates, delayed, or replaced by an injected fault.
+Unmatched requests get a default 404, or go to the upstream with
+`passthrough_unmatched`. Because it answers instead of the upstream, set
+`failure-mode "closed"` on the filter if a missing agent should be noticed
+rather than silently fall through to the real backend.
+
+## Quick start
 
 ```bash
-# Install just this agent
 zentinel bundle install mock-server
-
-# Or install all bundled agents
-zentinel bundle install
 ```
 
-The bundle command downloads the correct binary for your platform and places it in the standard location. See the [bundle documentation](https://docs.zentinelproxy.io/deployment/bundle/) for details.
+`mock-server.yaml`:
 
-### Using Cargo
+```yaml
+stubs:
+  - id: hello-world
+    request:
+      method: [GET]
+      path:
+        type: exact
+        value: /api/hello
+    response:
+      status: 200
+      body:
+        type: json
+        content:
+          message: "Hello, World!"
+```
 
-Not supported. `zentinel-agent-mock-server` is not published on crates.io, and it depends on
-`zentinel-agent-protocol` through a path dependency, so neither
-`cargo install zentinel-agent-mock-server` nor `cargo install --git` works. Use a prebuilt
-binary or build from source (below).
+```bash
+zentinel-mock-server-agent --validate -c mock-server.yaml
+zentinel-mock-server-agent -c mock-server.yaml --socket /var/run/zentinel/mock-server.sock
+```
 
-### Prebuilt Binaries
+```kdl
+system {
+    worker-threads 0
+}
 
-Each [release](https://github.com/zentinelproxy/zentinel-agent-mock-server/releases) ships binaries
-for `linux-x86_64`, `linux-aarch64`, and `darwin-aarch64`:
+listeners {
+    listener "http" {
+        address "127.0.0.1:8080"
+        protocol "http"
+    }
+}
+
+agents {
+    agent "mock-server" type="custom" {
+        unix-socket "/var/run/zentinel/mock-server.sock"
+        events "request_headers"
+        timeout-ms 1000
+        failure-mode "closed"
+    }
+}
+
+filters {
+    filter "mock-server" {
+        type "agent"
+        agent "mock-server"
+        failure-mode "closed"
+    }
+}
+
+routes {
+    route "api" {
+        matches {
+            path-prefix "/api/"
+        }
+        upstream "backend"
+        filters "mock-server"
+    }
+}
+
+upstreams {
+    upstream "backend" {
+        target "127.0.0.1:3000"
+    }
+}
+```
+
+`curl http://127.0.0.1:8080/api/hello` now returns the stub. Raise
+`timeout-ms` above the longest `delay` or `timeout` fault you configure, or the
+proxy gives up on the agent first.
+
+## Install
+
+**Bundle (recommended).** Downloads the release binary for your platform:
+
+```bash
+zentinel bundle install mock-server
+```
+
+See [the bundle documentation](https://docs.zentinelproxy.io/deployment/bundle/).
+
+**Release binaries.** Each [release](https://github.com/zentinelproxy/zentinel-agent-mock-server/releases)
+ships `linux-x86_64`, `linux-aarch64` and `darwin-aarch64` archives:
 
 ```bash
 VERSION=0.4.0
@@ -47,277 +132,104 @@ tar -xzf zentinel-mock-server-agent.tar.gz
 sudo install -m 0755 zentinel-mock-server-agent /usr/local/bin/
 ```
 
-### From Source
-
-Building from source requires the [zentinel](https://github.com/zentinelproxy/zentinel) repository checked out
-**next to** this one, because `zentinel-agent-protocol` is a path dependency:
+**From source.** The crate takes `zentinel-agent-sdk` as a path dependency on a
+sibling `zentinel-agent-rust-sdk` checkout, so `cargo install --git` does not
+work, and the crate is not on crates.io:
 
 ```bash
-git clone https://github.com/zentinelproxy/zentinel
+git clone https://github.com/zentinelproxy/zentinel-agent-rust-sdk
 git clone https://github.com/zentinelproxy/zentinel-agent-mock-server
 cd zentinel-agent-mock-server
 cargo build --release
 ```
 
-## Quick Start
-
-1. Create a configuration file `mock-server.yaml`:
-
-```yaml
-stubs:
-  - id: hello-world
-    request:
-      method: [GET]
-      path:
-        type: exact
-        value: /hello
-    response:
-      status: 200
-      body:
-        type: json
-        content:
-          message: "Hello, World!"
-```
-
-2. Add to your Zentinel configuration:
-
-```kdl
-agents {
-    mock-server {
-        socket "/tmp/zentinel-mock-server.sock"
-    }
-}
-```
-
-3. Start the agent:
-
-```bash
-zentinel-mock-server-agent -c mock-server.yaml
-```
-
 ## Configuration
 
-### Path Matching
+Command-line flags:
 
-```yaml
-# Exact match
-path:
-  type: exact
-  value: /api/users
+| Flag | Default | Meaning |
+|---|---|---|
+| `-c, --config <PATH>` | `mock-server.yaml` | Stub file; if it does not exist the agent starts with no stubs |
+| `-s, --socket <PATH>` | `/tmp/zentinel-mock-server.sock` | Unix socket to listen on |
+| `--grpc-address <ADDR>` | none | Also serve gRPC on this address, e.g. `0.0.0.0:50051` |
+| `-L, --log-level <LEVEL>` | `info` | `trace`, `debug`, `info`, `warn`, `error` |
+| `--print-config` | | Print [`examples/default-config.yaml`](examples/default-config.yaml) and exit |
+| `--validate` | | Parse and validate the file, then exit |
 
-# Prefix match
-path:
-  type: prefix
-  value: /api/
+The YAML file is the only way to configure the agent: it rejects unknown keys at
+the top level, in stubs, requests and responses, and an agent block's
+`config { }` in the proxy's KDL is not forwarded to the agent. Changes need a
+restart.
 
-# Regex match
-path:
-  type: regex
-  pattern: "^/api/v[0-9]+/.*"
+### Stubs
 
-# Glob match
-path:
-  type: glob
-  pattern: "/api/*/users"
+| Field | Default | Meaning |
+|---|---|---|
+| `id` | required | Stub name, used in logs and match counts |
+| `name` | none | Free-text label |
+| `request` | required | What to match (below); every given condition must hold |
+| `response` | required | What to return (below) |
+| `priority` | `0` | Higher priorities are tried first |
+| `enabled` | `true` | Skip the stub when `false` |
+| `max_matches` | `0` (unlimited) | After this many matches the stub counts as unmatched |
+| `delay` | none | `fixed_ms`, or a random `min_ms`..`max_ms` range |
+| `fault` | none | Replace the response with a fault (below) |
 
-# Template with parameters
-path:
-  type: template
-  template: /users/{id}
-```
+**Request matching.**
 
-### Query Parameter Matching
+- `method`: a list, e.g. `[GET, POST]`; empty matches any method.
+- `path` (`type` plus one value field): `exact` / `prefix` with `value`,
+  `regex` / `glob` with `pattern`, `template` with `template` (e.g.
+  `/users/{id}`; the parameters are available to templates).
+- `query`: a map of parameter to `exact` (`value`), `regex` (`pattern`),
+  `present` or `absent`.
+- `headers`: a map of header to `exact` (`value`), `regex` (`pattern`),
+  `contains` (`value`), `present` or `absent`. Names match case-insensitively.
+- `body`: `exact`, `regex`, `contains`, `json`, `json_path` and `empty` are
+  parsed, but the agent only receives request headers, so it sees no body:
+  stubs with a body matcher other than `empty` never match through the proxy
+  today.
 
-```yaml
-request:
-  query:
-    # Exact value
-    page:
-      type: exact
-      value: "1"
-    # Regex pattern
-    limit:
-      type: regex
-      pattern: "^\\d+$"
-    # Must be present
-    search:
-      type: present
-    # Must be absent
-    debug:
-      type: absent
-```
+**Response.**
 
-### Header Matching
+| Field | Default | Meaning |
+|---|---|---|
+| `status` | `200` | Status code, 100 to 599 |
+| `headers` | `{}` | Response headers |
+| `body` | none | `text` / `json` / `base64` with `content`, or `file` with `path` |
+| `template` | `false` | Render the body's strings with Handlebars |
 
-```yaml
-request:
-  headers:
-    authorization:
-      type: present
-    content-type:
-      type: exact
-      value: application/json
-    user-agent:
-      type: contains
-      value: "Mozilla"
-```
+Without a `Content-Type` header, the body type decides it (`text/plain`,
+`application/json`, `application/octet-stream`), then
+`settings.default_content_type`.
 
-### Body Matching
+**Templates.** With `template: true`, body strings can use `{{path.<name>}}`,
+`{{query.<name>}}`, `{{headers.<name>}}`, `{{captures.<group>}}` (regex path
+groups, by name or number), `{{method}}`,
+`{{request_path}}`, and the helpers `{{uuid}}`, `{{now}}` /
+`{{now "%Y-%m-%d"}}`, `{{random 1 100}}`, `{{default value "fallback"}}`,
+`{{upper value}}`, `{{lower value}}` and `{{json value}}`. `{{body}}` and
+`{{json.<field>}}` exist but are empty for the reason above.
 
-```yaml
-request:
-  body:
-    # Must be valid JSON
-    type: json
+**Faults.** A configured fault applies to every match:
 
-    # Exact match
-    type: exact
-    value: '{"key": "value"}'
+| `type` | Fields | Effect |
+|---|---|---|
+| `error` | `status`, `message` | Returns that status with `message` (default `Error`) as `text/plain` |
+| `timeout` | `duration_ms` | Waits, then returns 504; the proxy's agent `timeout-ms` usually fires first |
+| `empty` | | Returns 200 with an empty body |
+| `corrupt` | `probability` (default `1.0`) | With that probability returns 200 with random bytes, otherwise the normal response |
+| `slow_response` | `bytes_per_second` | Delays the whole response by body size / rate; the body is not streamed |
 
-    # Contains substring
-    type: contains
-    value: "search-term"
-
-    # JSON path expressions
-    type: json_path
-    expressions:
-      $.email: null  # Just check exists
-      $.role: "admin"
-```
-
-### Response Configuration
-
-```yaml
-response:
-  status: 200
-  headers:
-    X-Custom-Header: "value"
-  body:
-    # Text body
-    type: text
-    content: "Hello, World!"
-
-    # JSON body
-    type: json
-    content:
-      message: "success"
-
-    # Base64 binary
-    type: base64
-    content: "SGVsbG8sIFdvcmxkIQ=="
-
-    # File contents
-    type: file
-    path: ./fixtures/response.json
-```
-
-### Dynamic Templates
-
-Use Handlebars templates for dynamic responses:
-
-```yaml
-response:
-  template: true
-  body:
-    type: json
-    content:
-      id: "{{path.id}}"
-      query: "{{query.q}}"
-      user_agent: "{{headers.user-agent}}"
-      timestamp: "{{now}}"
-      request_id: "{{uuid}}"
-```
-
-Available template helpers:
-- `{{path.name}}` - Path parameters from template matching
-- `{{query.name}}` - Query parameters
-- `{{headers.name}}` - Request headers
-- `{{json.field}}` - Fields from JSON request body
-- `{{body}}` - Raw request body
-- `{{method}}` - Request method
-- `{{request_path}}` - Request path
-- `{{uuid}}` - Generate a random UUID
-- `{{now}}` / `{{now "%Y-%m-%d"}}` - Current timestamp
-- `{{random 1 100}}` - Random number in range
-- `{{default value "fallback"}}` - Default value
-- `{{upper value}}` / `{{lower value}}` - Case conversion
-
-### Latency Simulation
-
-```yaml
-# Fixed delay
-delay:
-  fixed_ms: 1000
-
-# Random range
-delay:
-  min_ms: 100
-  max_ms: 500
-```
-
-### Failure Injection
-
-```yaml
-# Return error
-fault:
-  type: error
-  status: 500
-  message: "Internal Server Error"
-
-# Simulate timeout
-fault:
-  type: timeout
-  duration_ms: 30000
-
-# Return empty response
-fault:
-  type: empty
-
-# Return corrupted data
-fault:
-  type: corrupt
-  probability: 0.5
-
-# Slow drip response
-fault:
-  type: slow_response
-  bytes_per_second: 100
-```
-
-### Match Limits
-
-```yaml
-# Only match first 5 times
-max_matches: 5
-```
-
-### Priority
-
-```yaml
-# Higher priority matches first (default: 0)
-priority: 10
-```
-
-## Global Settings
+### Global settings
 
 ```yaml
 settings:
-  # Log matched requests
   log_matches: true
-
-  # Log unmatched requests
   log_unmatched: true
-
-  # Pass unmatched to upstream (false = return 404)
   passthrough_unmatched: false
-
-  # Default content type
   default_content_type: application/json
 
-  # Case-insensitive header matching
-  case_insensitive_headers: true
-
-# Default response for unmatched requests
 default_response:
   status: 404
   body:
@@ -326,116 +238,55 @@ default_response:
       error: "not_found"
 ```
 
-## CLI Options
+| Option | Default | Meaning |
+|---|---|---|
+| `settings.log_matches` | `true` | Log each matched request |
+| `settings.log_unmatched` | `true` | Log each unmatched request |
+| `settings.passthrough_unmatched` | `false` | Forward unmatched requests to the upstream instead of answering |
+| `settings.default_content_type` | `application/json` | Content type of a response that has neither a `Content-Type` header nor a body |
+| `settings.case_insensitive_headers` | `true` | Accepted but not read; header names always match case-insensitively |
+| `default_response` | 404 JSON `{"error": "not_found", ...}` | Response for unmatched requests |
 
-```
-zentinel-mock-server-agent [OPTIONS]
+Proxy-side options (`events`, `timeout-ms`, `failure-mode`):
+<https://docs.zentinelproxy.io/configuration/agents/>. Agent reference:
+<https://registry.zentinelproxy.io/mock-server/>.
 
-Options:
-  -c, --config <PATH>        Configuration file [default: mock-server.yaml]
-  -s, --socket <PATH>        Unix socket path [default: /tmp/zentinel-mock-server.sock]
-  -L, --log-level <LEVEL>    Log level [default: info]
-      --print-config         Print example configuration
-      --validate             Validate configuration and exit
-  -h, --help                 Print help
-  -V, --version              Print version
-```
+## How it works
 
-## Use Cases
+On each `request_headers` event the agent sorts enabled stubs by priority and
+takes the first whose conditions all hold. A match is answered from the agent
+as a block decision carrying the stub's status, headers and body, so the
+upstream never sees the request. While the proxy drains or shuts the agent
+down, it stops answering and lets requests through. It reports request,
+match and stub counts as v2 metrics (`mock_server_requests_total`,
+`mock_server_requests_matched_total`, `mock_server_requests_unmatched_total`,
+`mock_server_stubs_configured`, `mock_server_stubs_enabled`).
 
-### API Development
+## Development
 
-Mock backend services while developing frontend:
+The build needs `zentinel-agent-rust-sdk` checked out next to this one.
 
-```yaml
-stubs:
-  - id: users-list
-    request:
-      method: [GET]
-      path:
-        type: exact
-        value: /api/users
-    response:
-      status: 200
-      body:
-        type: json
-        content:
-          users:
-            - id: 1
-              name: Alice
-            - id: 2
-              name: Bob
+```bash
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
+cargo test
 ```
 
-### Integration Testing
+## Related
 
-Simulate specific API responses for tests:
-
-```yaml
-stubs:
-  - id: payment-success
-    request:
-      method: [POST]
-      path:
-        type: exact
-        value: /api/payments
-      body:
-        type: json_path
-        expressions:
-          $.amount: null
-    response:
-      status: 200
-      body:
-        type: json
-        content:
-          status: "success"
-          transaction_id: "{{uuid}}"
-```
-
-### Chaos Testing
-
-Inject failures to test resilience:
-
-```yaml
-stubs:
-  - id: random-failures
-    request:
-      path:
-        type: prefix
-        value: /api/
-    response:
-      status: 200
-    fault:
-      type: error
-      status: 503
-    # 20% chance of triggering fault
-    priority: -1  # Lower priority than normal stubs
-```
-
-### Demo Environments
-
-Create realistic demo data:
-
-```yaml
-stubs:
-  - id: user-profile
-    request:
-      method: [GET]
-      path:
-        type: template
-        template: /users/{id}
-    response:
-      status: 200
-      template: true
-      body:
-        type: json
-        content:
-          id: "{{path.id}}"
-          name: "Demo User {{path.id}}"
-          email: "user{{path.id}}@example.com"
-          created_at: "{{now}}"
-```
+- [Registry page](https://registry.zentinelproxy.io/mock-server/)
+- [Agents configuration](https://docs.zentinelproxy.io/configuration/agents/)
+- [Agent protocol v2](https://docs.zentinelproxy.io/agents/v2/)
+- [Zentinel](https://github.com/zentinelproxy/zentinel)
+- [Chaos agent](https://github.com/zentinelproxy/zentinel-agent-chaos), for fault injection in front of a real upstream
+- [Rust agent SDK](https://github.com/zentinelproxy/zentinel-agent-rust-sdk), which this agent is built on
 
 ## License
 
-Apache-2.0
+Apache-2.0, as declared in `Cargo.toml`. The repository has no `LICENSE` file yet.
+
+---
+
+<p align="center">
+  <sub>Part of <a href="https://zentinelproxy.io">Zentinel</a>, the security-first reverse proxy. The shisa guards the gate.</sub>
+</p>
