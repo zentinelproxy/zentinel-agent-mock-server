@@ -410,7 +410,7 @@ impl Agent for MockServerAgent {
         }
 
         let method = request.method();
-        let path = request.path();
+        let path = request.path_only();
         let query_string = request.query_string();
         let headers = flatten_headers(request.headers());
         let body = request.body();
