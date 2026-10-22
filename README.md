@@ -150,12 +150,13 @@ Command-line flags:
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `-c, --config <PATH>` | `mock-server.yaml` | Stub file; if it does not exist the agent starts with no stubs |
-| `-s, --socket <PATH>` | `/tmp/zentinel-mock-server.sock` | Unix socket to listen on |
-| `--grpc-address <ADDR>` | none | Also serve gRPC on this address, e.g. `0.0.0.0:50051` |
+| `-c, --config <PATH>` | `mock-server.yaml` if present | Stub file. Without the option, `mock-server.yaml` in the working directory is used if it exists, otherwise the agent starts with no stubs. A `--config` file that does not exist is an error |
+| `-s, --socket <PATH>` | `/tmp/zentinel-mock-server.sock` | Unix socket to listen on (agent protocol v2) |
+| `--grpc-address <ADDR>` | none | Serve gRPC (agent protocol v2) on this address instead, e.g. `127.0.0.1:50051`; the socket is served as well only if `--socket` is also given |
 | `-L, --log-level <LEVEL>` | `info` | `trace`, `debug`, `info`, `warn`, `error` |
 | `--print-config` | | Print [`examples/default-config.yaml`](examples/default-config.yaml) and exit |
 | `--validate` | | Parse and validate the file, then exit |
+| `--version` | | Print `zentinel-mock-server-agent <version>` and exit |
 
 The YAML file is the only way to configure the agent: it rejects unknown keys at
 the top level, in stubs, requests and responses, and an agent block's
@@ -262,6 +263,26 @@ down, it stops answering and lets requests through. It reports request,
 match and stub counts as v2 metrics (`mock_server_requests_total`,
 `mock_server_requests_matched_total`, `mock_server_requests_unmatched_total`,
 `mock_server_stubs_configured`, `mock_server_stubs_enabled`).
+
+## Releases and smoke test
+
+Releases are built from their tag by the shared pipeline in
+[`zentinelproxy/.github`](https://github.com/zentinelproxy/.github)
+(`agent-release.yml`): each platform's binary is run behind a real Zentinel
+by [`scripts/smoke-test.sh`](scripts/smoke-test.sh) before anything is
+published, and CI runs the same smoke job on every push. It uses
+[`scripts/smoke/mock-server.yaml`](scripts/smoke/mock-server.yaml) over the
+Unix socket and over gRPC, fail-closed: a request without a stub is passed
+through to the upstream, a stubbed `GET /mocked` is answered `200` by the agent
+without reaching the upstream, a `418` stub answers `418`, an exact-path stub
+with a query matcher matches `/search?q=...` (paths are matched without the
+query string; before 0.5.0 such a stub could never match), and with the agent
+stopped requests are refused. Locally:
+
+```bash
+AGENT_SMOKE=../.github/agent-smoke/smoke.py \
+  scripts/smoke-test.sh target/release/zentinel-mock-server-agent ./zentinel
+```
 
 ## Development
 

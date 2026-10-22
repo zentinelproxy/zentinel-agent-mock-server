@@ -1,0 +1,51 @@
+# Configuration for scripts/smoke-test.sh.
+stubs:
+  # A mocked endpoint: answered by the agent, never by the upstream.
+  - id: mocked
+    request:
+      method: [GET]
+      path:
+        type: exact
+        value: /mocked
+    response:
+      status: 200
+      headers:
+        X-Mock: smoke
+      body:
+        type: json
+        content:
+          mocked: true
+
+  # A mocked error status.
+  - id: teapot
+    request:
+      path:
+        type: prefix
+        value: /teapot
+    response:
+      status: 418
+      body:
+        type: text
+        content: "I'm a teapot"
+
+  # Exact path plus a query matcher: the query string is not part of the path.
+  - id: search
+    request:
+      method: [GET]
+      path:
+        type: exact
+        value: /search
+      query:
+        q:
+          type: present
+    response:
+      status: 201
+      template: true
+      body:
+        type: json
+        content:
+          query: "{{query.q}}"
+
+settings:
+  # Anything without a stub goes on to the upstream.
+  passthrough_unmatched: true
